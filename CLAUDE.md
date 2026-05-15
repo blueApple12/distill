@@ -24,9 +24,9 @@ This runs `npm run build` then `gh-pages -d dist`. Always verify the change appe
 ## Project structure
 
 ```
-src/App.jsx          — entire app (~760 lines, all styles inline)
-src/App.css          — empty (required)
-src/index.css        — empty (required)
+src/App.jsx          — entire app (~760 lines, component styles inline)
+src/App.css          — component-specific styles (optional, currently minimal)
+src/index.css        — global styles, animations, fonts, layout classes
 src/main.jsx         — React entry point (don't touch)
 vite.config.js       — has base: '/distill/' for GitHub Pages
 index.html           — title: DISTILL, theme-color: #0d061c
@@ -37,10 +37,12 @@ index.html           — title: DISTILL, theme-color: #0d061c
 ## Tech stack (strict)
 
 - **React only**: useState, useEffect, useCallback, useRef
-- **No TypeScript, no CSS files, no CSS modules, no external UI libraries, no router, no state management**
-- **All styles are inline JSX objects**
-- One CSS class `.tx` for transitions, defined in inline `<style>` tag inside App component
-- **Fonts**: Space Mono and Noto Sans Hebrew, loaded via Google Fonts (inline style tag)
+- **No TypeScript, no CSS modules, no external UI libraries, no router, no state management**
+- **Styles**: Mostly inline JSX objects in components + global CSS in src/index.css
+- **CSS files**:
+  - `src/index.css` — global styles, animations, fonts, layout classes, media queries
+  - `src/App.css` — component-specific styles (optional)
+- **Fonts**: Space Mono and Noto Sans Hebrew, loaded via Google Fonts in index.css
 - **Only external packages**: react, react-dom, @vitejs/plugin-react (prod), gh-pages (devDependency)
 
 ---
@@ -306,7 +308,10 @@ Wait 1–2 min, hard-refresh browser (Cmd+Shift+R / Ctrl+Shift+R), check live UR
 
 **App shows old Vite template**: Check that index.html points to `src/main.jsx`, not `src/main.ts`. Check that src/App.css and src/index.css are **empty** (not with old template styles).
 
-**CSS not applying**: All styles are inline JSX. If something looks wrong, search App.jsx for the element and its style object. No external CSS files are used.
+**CSS not applying**: Check both places:
+1. Global styles in `src/index.css` (animations, fonts, layout classes .tx, .fade, .pop, .layout, .sidebar, .main)
+2. Inline JSX style objects in `src/App.jsx` for component-specific styling
+Make sure `src/index.css` is imported in `src/main.jsx`.
 
 **localStorage not persisting**: Check browser dev tools > Application > Local Storage. Look for keys starting with `'ag_'`. If missing, saved anagrams were cleared.
 
