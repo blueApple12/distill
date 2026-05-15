@@ -228,8 +228,8 @@ function TreeView({words,mode,maxNOs,stopAt,excluded,modeColor,modeBorder,allowe
       <div style={{display:'flex',justifyContent:'flex-end',marginBottom:8}}>
         <button onClick={downloadPNG} style={{background:'rgba(122,223,46,0.1)',color:'#7adf2e',border:'0.5px solid rgba(122,223,46,0.35)',borderRadius:5,padding:'5px 13px',fontSize:11,fontWeight:700,letterSpacing:1,fontFamily:"'Space Mono',monospace"}}>↓ PNG</button>
       </div>
-      <div style={{overflowX:'auto',overflowY:'auto',maxHeight:'75vh',width:'100%',background:'#090914',border:`0.5px solid ${modeBorder}`,borderRadius:9}}>
-        <svg ref={svgRef} width={dim.w} height={dim.h} style={{display:'block',minWidth:dim.w}}>
+      <div style={{overflowX:'auto',overflowY:'auto',maxHeight:'75vh',width:'100%',background:'#090914',border:`0.5px solid ${modeBorder}`,borderRadius:9,overscrollBehavior:'contain',WebkitOverscrollBehavior:'contain'}}>
+        <svg ref={svgRef} width={dim.w} height={dim.h} style={{display:'block',minWidth:dim.w,touchAction:'none'}}>
           <defs><marker id="arh" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><polygon points="0,0 7,3.5 0,7" fill="rgba(255,255,255,0.18)"/></marker></defs>
           {els.map((el,i)=>{
             if(el.t==='ed')return(<g key={i}><line x1={el.x1} y1={el.y1} x2={el.x2} y2={el.y2} stroke="rgba(255,255,255,0.16)" strokeWidth={1.5} markerEnd="url(#arh)"/><rect x={el.lx-16} y={el.ly-9} width={32} height={17} rx={4} fill="#090914"/><text x={el.lx} y={el.ly+5} textAnchor="middle" fontSize={10} fontFamily="'Space Mono',monospace" fontWeight="700" fill="rgba(200,200,220,0.72)">{el.lb}</text></g>);
@@ -502,101 +502,59 @@ export default function App(){
             <div style={{padding:'10px 14px 6px',fontSize:9,letterSpacing:3,color:T2.pri,opacity:0.7,fontFamily:"'Space Mono',monospace"}}>WORDS</div>
             <div style={{padding:'0 14px 12px',display:'flex',flexDirection:'column',gap:6}}>
               <div style={{fontSize:12,color:T2.sec,opacity:0.85}}>{wl.length===0?'No words yet':`${effectiveWl.length}${excluded.length>0?` / ${wl.length}`:''} words`}</div>
-              <div style={{display:'flex',gap:6}}>
-                {[['EDIT',showList,()=>{setShowList(s=>!s);setShowSaved(false);}],['SAVED'+(savedList.length?` (${savedList.length})`:''),showSaved,()=>{setShowSaved(s=>!s);setShowList(false);}]].map(([lbl,on,fn])=>(
-                  <button key={lbl} onClick={fn} className="tx" style={{flex:1,padding:'7px',fontSize:10,fontWeight:700,letterSpacing:1,borderRadius:6,background:on?T2.priDim:'rgba(255,255,255,0.05)',color:on?T2.pri:'rgba(200,200,220,0.45)',border:`0.5px solid ${on?T2.priBorder:'rgba(255,255,255,0.08)'}`}}>{lbl}</button>
-                ))}
+              <div style={{display:'flex',gap:6,marginBottom:6}}>
+                <button onClick={()=>{setShowList(s=>!s);setShowSaved(false);}} className="tx" style={{flex:1,padding:'7px',fontSize:10,fontWeight:700,letterSpacing:1,borderRadius:6,background:showList?T2.priDim:'rgba(255,255,255,0.05)',color:showList?T2.pri:'rgba(200,200,220,0.45)',border:`0.5px solid ${showList?T2.priBorder:'rgba(255,255,255,0.08)'}`}}>EDIT</button>
+                <button onClick={()=>{setShowSaved(s=>!s);setShowList(false);}} className="tx" style={{flex:1,padding:'7px',fontSize:10,fontWeight:700,letterSpacing:1,borderRadius:6,background:showSaved?T2.secDim:'rgba(255,255,255,0.05)',color:showSaved?T2.sec:'rgba(200,200,220,0.45)',border:`0.5px solid ${showSaved?T2.secBorder:'rgba(255,255,255,0.08)'}`}}>SAVED{savedList.length?` (${savedList.length})`:''}</button>
               </div>
+              {showList&&(
+                <div className="fade" style={{background:'rgba(0,0,0,0.2)',border:`0.5px solid ${T2.border}`,borderRadius:6,padding:'8px 10px',maxHeight:200,overflowY:'auto'}}>
+                  {wl.length>0?(
+                    <div style={{display:'flex',flexWrap:'wrap',gap:3}}>
+                      {wl.slice(0,40).map(w=>(
+                        <span key={w} style={{display:'inline-flex',alignItems:'center',gap:2,background:'rgba(255,255,255,0.05)',border:'0.5px solid rgba(255,255,255,0.09)',borderRadius:3,padding:'2px 4px',fontSize:9,fontFamily:heb?"'Noto Sans Hebrew',sans-serif":"'Space Mono',monospace",color:'#b8b8d0',direction:heb?'rtl':'ltr'}}>
+                          {w}<button onClick={()=>setWords(c=>c.filter(x=>x!==w))} style={{background:'none',color:'rgba(200,200,220,0.3)',padding:0,fontSize:9,lineHeight:1}}>×</button>
+                        </span>
+                      ))}
+                      {wl.length>40&&<span style={{fontSize:8,color:'rgba(200,200,220,0.25)',padding:'2px 4px'}}>+{wl.length-40}</span>}
+                    </div>
+                  ):<div style={{fontSize:9,color:'rgba(200,200,220,0.3)'}}>No words added</div>}
+                </div>
+              )}
+              {showSaved&&(
+                <div className="fade" style={{background:'rgba(0,0,0,0.2)',border:`0.5px solid ${T2.border}`,borderRadius:6,padding:'8px 10px',maxHeight:280,overflowY:'auto'}}>
+                  {savedList.length===0?(
+                    <div style={{fontSize:9,color:'rgba(200,200,220,0.3)',textAlign:'center',padding:'8px 0'}}>No saved anagrams</div>
+                  ):(
+                    <div style={{display:'flex',flexDirection:'column',gap:4}}>
+                      {[...savedList].sort((a,b)=>b.savedAt-a.savedAt).map(item=>(
+                        <div key={item.id} onClick={()=>applyAnagram(item)} style={{display:'flex',alignItems:'center',gap:4,background:'rgba(255,255,255,0.04)',border:'0.5px solid rgba(255,255,255,0.06)',borderRadius:4,padding:'6px 8px',cursor:'pointer',transition:'background 0.1s'}}
+                          onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.08)'}
+                          onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,0.04)'}>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontFamily:isHebrew(item.words[0]||'')?"'Noto Sans Hebrew',sans-serif":"'Space Mono',monospace",fontSize:10,fontWeight:700,color:'#e2e2f0',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginBottom:2}}>{item.name}</div>
+                            <div style={{fontSize:8,color:'rgba(200,200,220,0.3)'}}>{item.words.length} words</div>
+                          </div>
+                          <div style={{display:'flex',gap:2,flexShrink:0}}>
+                            <button onClick={e=>{e.stopPropagation();applyAnagram(item,true);}} style={{background:'none',color:'rgba(200,200,220,0.4)',border:'none',fontSize:10,padding:'0 3px',cursor:'pointer'}}>✎</button>
+                            <button onClick={e=>{e.stopPropagation();deleteAnagram(item.id);}} style={{background:'none',color:'rgba(224,107,77,0.35)',border:'none',fontSize:12,padding:'0 3px',cursor:'pointer',lineHeight:1}}>×</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
 
         {/* MAIN */}
         <div className={`main${mobilePanel!=='view'?' mob-hide':''}`}>
-          {showList&&(
-            <div className="fade" style={{background:T2.card,border:`0.5px solid ${T2.border}`,borderRadius:9,padding:'14px 16px',marginBottom:14}}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-                <span style={{fontSize:10,letterSpacing:2,color:T2.pri,fontFamily:"'Space Mono',monospace",fontWeight:700}}>WORD LIST</span>
-                {wl.length>0&&<span style={{fontSize:10,color:'rgba(200,200,220,0.25)'}}>{wl.length} words</span>}
-              </div>
-              {wl.length>0&&(
-                <div style={{maxHeight:110,overflowY:'auto',padding:'5px 6px',background:'rgba(0,0,0,0.2)',borderRadius:6,border:'0.5px solid rgba(255,255,255,0.05)',marginBottom:10,display:'flex',flexWrap:'wrap',gap:4}}>
-                  {wl.slice(0,80).map(w=>(
-                    <span key={w} style={{display:'inline-flex',alignItems:'center',gap:3,background:'rgba(255,255,255,0.05)',border:'0.5px solid rgba(255,255,255,0.09)',borderRadius:4,padding:'2px 6px',fontSize:12,fontFamily:heb?"'Noto Sans Hebrew',sans-serif":"'Space Mono',monospace",color:'#b8b8d0',direction:heb?'rtl':'ltr'}}>
-                      {w}<button onClick={()=>setWords(c=>c.filter(x=>x!==w))} style={{background:'none',color:'rgba(200,200,220,0.3)',padding:0,fontSize:11,lineHeight:1}}>×</button>
-                    </span>
-                  ))}
-                  {wl.length>80&&<span style={{fontSize:10,color:'rgba(200,200,220,0.25)',padding:'3px 4px'}}>+{wl.length-80}</span>}
-                </div>
-              )}
-              <div style={{display:'flex',gap:6,marginBottom:6}}>
-                <input value={inp} onChange={e=>setInp(e.target.value)} dir={heb?'rtl':'ltr'}
-                  onKeyDown={e=>{if(e.key==='Enter'&&inp.trim()){addWords(inp);setInp('');}}}
-                  placeholder="Add word(s)..."
-                  style={{flex:1,background:'rgba(255,255,255,0.04)',border:'0.5px solid rgba(255,255,255,0.12)',borderRadius:5,padding:'7px 10px'}}/>
-                <button onClick={()=>{if(inp.trim()){addWords(inp);setInp('');}}} style={{background:'rgba(255,255,255,0.06)',color:'#e2e2f0',border:'0.5px solid rgba(255,255,255,0.12)',borderRadius:5,padding:'0 14px',fontSize:13,fontWeight:700}}>+</button>
-              </div>
-              {wl.length>0&&(
-                <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
-                  <button onClick={()=>setWords([])} style={{background:'transparent',color:'rgba(224,107,77,0.4)',border:'0.5px solid rgba(224,107,77,0.15)',borderRadius:5,padding:'4px 10px',fontSize:11}}>Clear all</button>
-                  <div style={{display:'flex',gap:5,marginInlineStart:'auto',alignItems:'center',flexWrap:'wrap'}}>
-                    {editingId&&<button onClick={()=>{setEditingId(null);setSaveNameInp('');}} style={{background:'transparent',color:'rgba(200,200,220,0.3)',border:'0.5px solid rgba(200,200,220,0.12)',borderRadius:5,padding:'4px 8px',fontSize:10}}>✕ cancel</button>}
-                    <input value={saveNameInp} onChange={e=>setSaveNameInp(e.target.value)}
-                      onKeyDown={e=>{if(e.key==='Enter'&&saveNameInp.trim()){saveAnagram(saveNameInp);setSaveNameInp('');}}}
-                      placeholder={editingId?'Edit name...':'Name this anagram...'}
-                      style={{background:'rgba(255,255,255,0.04)',border:`0.5px solid ${editingId?T2.priBorder:T2.pri+'44'}`,borderRadius:5,padding:'4px 9px',fontSize:11,color:'#e2e2f0',width:140}}/>
-                    <button onClick={()=>{if(saveNameInp.trim()){saveAnagram(saveNameInp);setSaveNameInp('');}}} style={{background:T2.priDim,color:T2.pri,border:`0.5px solid ${T2.priBorder}`,borderRadius:5,padding:'4px 10px',fontSize:11,fontWeight:700}}>{editingId?'★ UPDATE':'★ SAVE'}</button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {showSaved&&(
-            <div className="fade" style={{background:T2.card,border:`0.5px solid ${T2.secBorder}`,borderRadius:9,padding:'14px 16px',marginBottom:14}}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-                <span style={{fontSize:10,letterSpacing:2,color:T2.sec,fontFamily:"'Space Mono',monospace",fontWeight:700}}>★ SAVED ANAGRAMS</span>
-                <span style={{fontSize:10,color:'rgba(200,200,220,0.25)'}}>{savedList.length} saved</span>
-              </div>
-              {savedList.length===0?(
-                <div style={{fontSize:12,color:'rgba(200,200,220,0.3)',textAlign:'center',padding:'16px 0',lineHeight:1.7}}>No saved anagrams yet.<br/>Add words via <span style={{color:T2.pri}}>EDIT</span>, then save.</div>
-              ):(
-                <div style={{display:'flex',flexDirection:'column',gap:6}}>
-                  {[...savedList].sort((a,b)=>b.savedAt-a.savedAt).map(item=>(
-                    <div key={item.id} style={{display:'flex',alignItems:'center',gap:8,background:'rgba(255,255,255,0.03)',border:'0.5px solid rgba(255,255,255,0.07)',borderRadius:7,padding:'9px 12px',cursor:'pointer',transition:'background 0.1s'}}
-                      onClick={()=>applyAnagram(item)}
-                      onMouseEnter={e=>e.currentTarget.style.background=T2.secDim}
-                      onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,0.03)'}>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontFamily:isHebrew(item.words[0]||'')?"'Noto Sans Hebrew',sans-serif":"'Space Mono',monospace",fontSize:13,fontWeight:700,color:'#e2e2f0',marginBottom:4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.name}</div>
-                        <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
-                          <span style={{fontSize:9,color:'rgba(200,200,220,0.35)',fontFamily:"'Space Mono',monospace"}}>{item.words.length} words</span>
-                          <span style={{fontSize:9,color:C.blue,fontFamily:"'Space Mono',monospace"}}>{item.mode==='5050'?'50/50':'SNIPER'}</span>
-                          {item.maxNOs>0&&<span style={{fontSize:9,color:C.blue,fontFamily:"'Space Mono',monospace"}}>NO×{item.maxNOs}</span>}
-                          {item.stopAt&&item.stopAt!==2&&<span style={{fontSize:9,color:'rgba(200,200,220,0.3)',fontFamily:"'Space Mono',monospace"}}>STOP:{item.stopAt}</span>}
-                          {item.maxExclude>0&&<span style={{fontSize:9,color:'rgba(200,200,220,0.3)',fontFamily:"'Space Mono',monospace"}}>EXCL:{item.maxExclude}</span>}
-                          {(item.allowed||item.allowedQTypes)&&Object.entries(item.allowed||item.allowedQTypes).some(([,v])=>!v)&&(
-                            <span style={{fontSize:9,color:'rgba(200,200,220,0.28)',fontFamily:"'Space Mono',monospace"}}>Q:{Object.entries(item.allowed||item.allowedQTypes).filter(([,v])=>v).map(([k])=>k==='cups'?'CUPS':k==='length'?'LEN':k==='contains'?'HAS':k==='position'?'POS':'DUP').join('+')}</span>
-                          )}
-                          <span style={{fontSize:9,color:'rgba(200,200,220,0.22)',fontFamily:"'Space Mono',monospace",marginInlineStart:'auto'}}>{new Date(item.savedAt).toLocaleDateString()}</span>
-                        </div>
-                        <div style={{fontSize:10,color:'rgba(200,200,220,0.28)',marginTop:4,fontFamily:isHebrew(item.words[0]||'')?"'Noto Sans Hebrew',sans-serif":"'Space Mono',monospace",direction:isHebrew(item.words[0]||'')?'rtl':'ltr',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.words.slice(0,8).join(', ')}{item.words.length>8?'...':''}</div>
-                      </div>
-                      <div style={{display:'flex',flexDirection:'column',gap:4,flexShrink:0}}>
-                        <button onClick={e=>{e.stopPropagation();applyAnagram(item,true);}} style={{background:T2.secDim,color:T2.sec,border:`0.5px solid ${T2.secBorder}`,borderRadius:4,fontSize:10,padding:'3px 7px',fontWeight:700,fontFamily:"'Space Mono',monospace"}}>EDIT</button>
-                        <button onClick={e=>{e.stopPropagation();deleteAnagram(item.id);}} style={{background:'transparent',color:'rgba(224,107,77,0.35)',border:'none',fontSize:15,padding:'2px 4px',lineHeight:1}} onMouseEnter={e=>e.currentTarget.style.color='rgba(224,107,77,0.7)'} onMouseLeave={e=>e.currentTarget.style.color='rgba(224,107,77,0.35)'}>×</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
 
           {viewMode==='tree'&&(
-            <div>
+            <div style={{display:'flex',flexDirection:'column',justifyContent:'center',alignItems:'center',minHeight:'calc(100vh - 120px)',width:'100%'}}>
               {wl.length===0?(
-                <div className="tx" style={{background:T2.card,border:`0.5px solid ${T2.border}`,borderRadius:9,padding:'32px 24px',textAlign:'center'}}>
+                <div className="tx" style={{background:T2.card,border:`0.5px solid ${T2.border}`,borderRadius:9,padding:'32px 24px',textAlign:'center',width:'90%',maxWidth:300}}>
                   <div style={{fontSize:28,marginBottom:12,opacity:0.25}}>◇</div>
                   <div style={{fontSize:14,color:'rgba(200,200,220,0.4)',lineHeight:1.7}}>Add words via <span style={{color:T2.pri}}>EDIT</span> to begin</div>
                 </div>
@@ -618,14 +576,14 @@ export default function App(){
           )}
 
           {viewMode==='hunt'&&phase==='idle'&&(
-            <div style={{textAlign:'center'}}>
+            <div style={{display:'flex',flexDirection:'column',justifyContent:'center',alignItems:'center',minHeight:'calc(100vh - 120px)',width:'100%',textAlign:'center'}}>
               {wl.length===0?(
-                <div className="tx" style={{background:T2.card,border:`0.5px solid ${T2.border}`,borderRadius:9,padding:'32px 24px'}}>
+                <div className="tx" style={{background:T2.card,border:`0.5px solid ${T2.border}`,borderRadius:9,padding:'32px 24px',width:'90%',maxWidth:300}}>
                   <div style={{fontSize:28,marginBottom:12,opacity:0.25}}>◇</div>
                   <div style={{fontSize:14,color:'rgba(200,200,220,0.4)',lineHeight:1.7}}>Add words via <span style={{color:T2.pri}}>EDIT</span> to begin</div>
                 </div>
               ):(
-                <div className="tx" style={{background:T2.card,border:`0.5px solid ${T2.priBorder}`,borderRadius:9,padding:'28px 24px'}}>
+                <div className="tx" style={{background:T2.card,border:`0.5px solid ${T2.priBorder}`,borderRadius:9,padding:'28px 24px',width:'90%',maxWidth:400}}>
                   <div style={{display:'flex',gap:8,justifyContent:'center',flexWrap:'wrap',marginBottom:16}}>
                     <Tag color={T2.sec}>{mode==='5050'?'50/50':'SNIPER'}</Tag>
                     {allowed.cups&&<Tag color={T2.sec}>CUPS</Tag>}

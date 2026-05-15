@@ -75,6 +75,9 @@ input:focus {
 .main {
   flex: 1;
   min-width: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overscroll-behavior: contain;
 }
 
 .tx {
