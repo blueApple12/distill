@@ -17,8 +17,8 @@ Error generating stack: `+e.message+`
         input{outline:none;font-family:'Noto Sans Hebrew','Space Mono',monospace;font-size:13px;color:#e8e0ff}
         input:focus{border-color:rgba(122,223,46,0.4)!important}
         ::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:rgba(155,109,255,0.3);border-radius:2px}
-        .layout{display:flex;gap:20px;width:100%;max-width:1000px;align-items:flex-start}
-        .sidebar{width:260px;flex-shrink:0}.main{flex:1;min-width:0}
+        .layout{display:flex;gap:20px;width:100%;max-width:1000px;align-items:flex-start;height:100vh}
+        .sidebar{width:260px;flex-shrink:0}.main{flex:1;min-width:0;display:flex;flex-direction:column}
         .tx{transition:background 0.4s ease,border-color 0.4s ease,color 0.4s ease}
         @media(max-width:640px){.layout{flex-direction:column;gap:0}.sidebar{width:100%}.mob-hide{display:none!important}}
         @media(min-width:641px){.mob-bar{display:none!important}}
