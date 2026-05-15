@@ -441,12 +441,7 @@ export default function App(){
           </div>
           <div style={{marginBottom:18}}>
             <div style={{fontSize:9,letterSpacing:3,color:'rgba(200,200,220,0.3)',fontFamily:"'Space Mono',monospace",marginBottom:8}}>VIEW</div>
-            <div className="tx" style={{display:'flex',borderRadius:8,overflow:'hidden',border:`0.5px solid ${T2.border}`,background:T2.card}}>
-              {[['hunt','HUNT'],['tree','TREE']].map(([v,lbl])=>{
-                const col=v==='hunt'?modeColor:C.green;
-                return <button key={v} onClick={()=>setViewMode(v)} style={{flex:1,padding:'9px 4px',fontSize:10,fontWeight:700,letterSpacing:1,background:viewMode===v?col+'28':'transparent',color:viewMode===v?col:'rgba(200,200,220,0.35)',borderRight:v==='hunt'?`0.5px solid ${T2.border}`:'none',transition:'all 0.4s'}}>{lbl}</button>;
-              })}
-            </div>
+            <Tag color={viewMode==='tree'?C.green:modeColor}>{viewMode.toUpperCase()}</Tag>
           </div>
           <div className="tx" style={{background:T2.card,border:`0.5px solid ${T2.border}`,borderRadius:12,overflow:'hidden',marginBottom:14}}>
             <div style={{padding:'10px 14px 6px',fontSize:9,letterSpacing:3,color:'rgba(200,200,220,0.28)',fontFamily:"'Space Mono',monospace"}}>MODE</div>
@@ -552,15 +547,17 @@ export default function App(){
         <div className={`main${mobilePanel!=='view'?' mob-hide':''}`}>
 
           {viewMode==='tree'&&(
-            <div style={{display:'flex',flexDirection:'column',justifyContent:'center',alignItems:'center',minHeight:'calc(100vh - 120px)',width:'100%'}}>
+            <div className="fade" style={{display:'flex',flexDirection:'column',width:'100%',height:'100%'}}>
               {wl.length===0?(
-                <div className="tx" style={{background:T2.card,border:`0.5px solid ${T2.border}`,borderRadius:9,padding:'32px 24px',textAlign:'center',width:'90%',maxWidth:300}}>
-                  <div style={{fontSize:28,marginBottom:12,opacity:0.25}}>◇</div>
-                  <div style={{fontSize:14,color:'rgba(200,200,220,0.4)',lineHeight:1.7}}>Add words via <span style={{color:T2.pri}}>EDIT</span> to begin</div>
+                <div style={{display:'flex',flexDirection:'column',justifyContent:'center',alignItems:'center',minHeight:'calc(100vh - 160px)'}}>
+                  <div className="tx" style={{background:T2.card,border:`0.5px solid ${T2.border}`,borderRadius:9,padding:'32px 24px',textAlign:'center',width:'90%',maxWidth:300}}>
+                    <div style={{fontSize:28,marginBottom:12,opacity:0.25}}>◇</div>
+                    <div style={{fontSize:14,color:'rgba(200,200,220,0.4)',lineHeight:1.7}}>Add words via <span style={{color:T2.pri}}>EDIT</span> to begin</div>
+                  </div>
                 </div>
               ):(
                 <>
-                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,flexWrap:'wrap'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,flexWrap:'wrap',flexShrink:0}}>
                     <Tag color={T2.pri}>TREE</Tag>
                     <Tag color={T2.sec}>{mode==='5050'?'50/50':'SNIPER'}</Tag>
                     {allowed.cups&&<Tag color={T2.sec}>CUPS</Tag>}
@@ -568,15 +565,17 @@ export default function App(){
                     {excluded.length>0&&<Tag color={T2.sec}>−{excluded.length}</Tag>}
                     <span style={{fontSize:10,color:'rgba(200,200,220,0.25)',marginInlineStart:'auto'}}>{effectiveWl.length} words</span>
                   </div>
-                  <TreeView words={effectiveWl} mode={mode} maxNOs={maxNOs} stopAt={stopAt}
-                    excluded={excluded} modeColor={modeColor} modeBorder={modeBorder} allowed={allowed}/>
+                  <div style={{flex:1,minHeight:0,overflow:'hidden'}}>
+                    <TreeView words={effectiveWl} mode={mode} maxNOs={maxNOs} stopAt={stopAt}
+                      excluded={excluded} modeColor={modeColor} modeBorder={modeBorder} allowed={allowed}/>
+                  </div>
                 </>
               )}
             </div>
           )}
 
           {viewMode==='hunt'&&phase==='idle'&&(
-            <div style={{display:'flex',flexDirection:'column',justifyContent:'center',alignItems:'center',minHeight:'calc(100vh - 120px)',width:'100%',textAlign:'center'}}>
+            <div className="fade" style={{display:'flex',flexDirection:'column',justifyContent:'center',alignItems:'center',width:'100%',minHeight:'calc(100vh - 160px)',textAlign:'center'}}>
               {wl.length===0?(
                 <div className="tx" style={{background:T2.card,border:`0.5px solid ${T2.border}`,borderRadius:9,padding:'32px 24px',width:'90%',maxWidth:300}}>
                   <div style={{fontSize:28,marginBottom:12,opacity:0.25}}>◇</div>
