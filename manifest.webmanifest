@@ -1,0 +1,19 @@
+{
+  "name": "DISTILL",
+  "short_name": "DISTILL",
+  "description": "Mentalism trainer: pick a word, narrow it down with smart questions",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0d061c",
+  "theme_color": "#0d061c",
+  "icons": [
+    {
+      "src": "./favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
