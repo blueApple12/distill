@@ -1,5 +1,5 @@
 // DISTILL — service worker. Cache-first with network fallback, app-shell precached.
-const VERSION = 'distill-v2';
+const VERSION = 'distill-v3';
 const SHELL = ['./', './index.html', './favicon.svg', './manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
