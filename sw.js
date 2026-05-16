@@ -1,6 +1,6 @@
 // DISTILL — service worker. Network-first for HTML so the user always gets the
 // latest asset hashes; cache-first for everything else (offline + speed).
-const VERSION = 'distill-v4';
+const VERSION = 'distill-v5';
 const SHELL = ['./', './index.html', './favicon.svg', './manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
