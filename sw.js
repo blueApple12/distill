@@ -1,6 +1,6 @@
 // DISTILL — service worker. Network-first for HTML so the user always gets the
 // latest asset hashes; cache-first for everything else (offline + speed).
-const VERSION = 'distill-v6';
+const VERSION = 'distill-v7';
 const SHELL = ['./', './index.html', './logo.png', './manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
@@ -57,7 +57,7 @@ self.addEventListener('fetch', (e) => {
           }
           return res;
         })
-        .catch(() => cached || caches.match('./index.html'));
+        .catch(() => cached || Response.error());
       return cached || network;
     })
   );
