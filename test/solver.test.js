@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  solveTree, solvePrimary, solveAdvice, solveForcedAlternatives, validateTree,
+  solveTree, solvePrimary, solveAdvice, solveForcedAlternatives, validateTree, getTreeQuality,
 } from '../src/solver.js';
 
 const ONLY_CONTAINS = {
@@ -210,4 +210,34 @@ test('a node alternative may replace the exclusion set without becoming worse', 
   assert.deepEqual(pair.variant.toExclude, ['c']);
   assert.equal(pair.variant.depth, baseline.depth);
   assert.equal(pair.variant.validation.valid, true);
+});
+
+test('ranks fewer total question nodes ahead of mode tie-breaks', () => {
+  const leaf = words => ({ words, q: null, ch: {} });
+  const question = id => ({ id, baseId: id, type: 'bin', inverted: false });
+  const cupQuestion = id => ({ id, baseId: id, type: 'cup', inverted: false });
+  const compact = {
+    words: ['a', 'b', 'c', 'd'], q: cupQuestion('compact'), ch: {
+      A: leaf(['a']), B: leaf(['b']), REST: { words: ['c', 'd'], q: question('compact-child'), ch: { YES: leaf(['c']), NO: leaf(['d']) } },
+    },
+  };
+  const larger = {
+    words: ['a', 'b', 'c', 'd'], q: question('larger'), ch: {
+      YES: { words: ['a', 'b'], q: question('larger-child'), ch: { YES: leaf(['a']), NO: leaf(['b']) } },
+      NO: { words: ['c', 'd'], q: question('larger-child-2'), ch: { YES: leaf(['c']), NO: leaf(['d']) } },
+    },
+  };
+
+  const compactQuality = getTreeQuality(compact, { mode: '5050' });
+  const largerQuality = getTreeQuality(larger, { mode: '5050' });
+  assert.equal(compactQuality.depth, largerQuality.depth);
+  assert.ok(compactQuality.questionNodes < largerQuality.questionNodes);
+  assert.deepEqual(
+    [compactQuality.negativeTier, compactQuality.negativeCount, compactQuality.depth, compactQuality.questionNodes],
+    [0, 0, 2, 2],
+  );
+  assert.deepEqual(
+    [largerQuality.negativeTier, largerQuality.negativeCount, largerQuality.depth, largerQuality.questionNodes],
+    [0, 0, 2, 3],
+  );
 });

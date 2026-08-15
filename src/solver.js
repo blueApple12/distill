@@ -26,6 +26,51 @@ function maxNegativeOnPath(node) {
   return childMax + (node.q.inverted ? 1 : 0);
 }
 
+function questionNodeCount(node) {
+  if (!node?.q) return 0;
+  return 1 + Object.values(node.ch || {}).reduce((total, child) => total + questionNodeCount(child), 0);
+}
+
+function modeTreeScore(tree, mode) {
+  const sizes = Object.values(tree?.ch || {}).map(child => child.words?.length || 0);
+  const total = Math.max(1, tree?.words?.length || 0);
+  const largest = Math.max(0, ...sizes);
+  const squares = sizes.reduce((sum, size) => sum + size * size, 0);
+  if (mode === 'sniper') {
+    const noSize = tree?.q?.type === 'bin' ? (tree.ch?.NO?.words?.length || 0) : 0;
+    return [noSize / total, largest / total, squares];
+  }
+  return [largest / total, squares, tree?.q?.type === 'cup' ? 0 : 1];
+}
+
+function compareTrees(a, b, mode) {
+  const aQuality = getTreeQuality(a, { mode });
+  const bQuality = getTreeQuality(b, { mode });
+  const aObjective = [aQuality.negativeTier, aQuality.negativeTier > 1 ? aQuality.negativeCount : 0, aQuality.depth, aQuality.questionNodes];
+  const bObjective = [bQuality.negativeTier, bQuality.negativeTier > 1 ? bQuality.negativeCount : 0, bQuality.depth, bQuality.questionNodes];
+  for (let i = 0; i < aObjective.length; i++) {
+    if (aObjective[i] !== bObjective[i]) return aObjective[i] - bObjective[i];
+  }
+  const aScore = modeTreeScore(a, mode);
+  const bScore = modeTreeScore(b, mode);
+  for (let i = 0; i < aScore.length; i++) {
+    if (aScore[i] !== bScore[i]) return aScore[i] - bScore[i];
+  }
+  return (a?.q?.id || '').localeCompare(b?.q?.id || '');
+}
+
+export function getTreeQuality(tree, { mode = '5050' } = {}) {
+  const negativeCount = maxNegativeOnPath(tree);
+  const validation = validateTree(tree, { maxNOs: 0, stopAt: Number.MAX_SAFE_INTEGER });
+  return {
+    negativeTier: negativeCount === 0 ? 0 : negativeCount === 1 ? 1 : 2,
+    negativeCount,
+    depth: validation.maxDepth,
+    questionNodes: questionNodeCount(tree),
+    modeScore: modeTreeScore(tree, mode),
+  };
+}
+
 const pathKey = path => path.join('\u001f');
 
 function nodeAtPath(tree, path) {
@@ -166,6 +211,7 @@ function solveAtDepth(words, prepared, options, depthLimit) {
     const seenPartitions = new Set();
     const candidates = [];
     const rootVariants = [];
+    const rootVariantLimit = options.maxRootCandidates || 64;
     const requiredQuestionId = forcedByPath.get(pathKey(path));
     for (const preparedQuestion of prepared) {
       if (requiredQuestionId && preparedQuestion.q.id !== requiredQuestionId) continue;
@@ -206,7 +252,7 @@ function solveAtDepth(words, prepared, options, depthLimit) {
       };
       if (mask === fullMask && depthLeft === depthLimit) {
         rootVariants.push(result);
-        if (rootVariants.length < (options.maxVariants || 8)) continue;
+        if (rootVariants.length < rootVariantLimit) continue;
       }
       result.rootVariants = rootVariants;
       return result;
@@ -259,6 +305,7 @@ export function solveTree(words, rawOptions = {}) {
     questions: null,
     initialNOs: 0,
     maxVariants: 8,
+    maxRootCandidates: 64,
     forcedQuestions: [],
     ...rawOptions,
   };
@@ -303,8 +350,16 @@ export function solveTree(words, rawOptions = {}) {
         const { rootVariants: _variants, ...serializableTree } = candidate;
         return serializableTree;
       });
-      const trees = candidates.filter(candidate => maxNegativeOnPath(candidate) === negativeLimit);
-      const forcedValid = trees.filter(candidate => options.forcedQuestions.every(force =>
+      const negativeTrees = candidates.filter(candidate => maxNegativeOnPath(candidate) === negativeLimit);
+      if (!negativeTrees.length) continue;
+      const fewestNodes = Math.min(...negativeTrees.map(questionNodeCount));
+      const trees = negativeTrees.filter(candidate => questionNodeCount(candidate) === fewestNodes)
+        .sort((a, b) => compareTrees(a, b, options.mode))
+        .slice(0, options.maxVariants || 8);
+      const qualityTrees = requiredQuality
+        ? trees.filter(candidate => questionNodeCount(candidate) === requiredQuality.questionNodes)
+        : trees;
+      const forcedValid = qualityTrees.filter(candidate => options.forcedQuestions.every(force =>
         nodeAtPath(candidate, force.path)?.q?.id === force.questionId));
       if (!forcedValid.length) continue;
       const actualDepth = validateTree(forcedValid[0], options).maxDepth;
@@ -334,6 +389,7 @@ function solveExactExclusions(options, count) {
   if (clamped < collisionLowerBound(options.words, questions)) return [];
   const winners = [];
   let bestDepth = Infinity;
+  let bestQuestionNodes = Infinity;
   for (const excluded of combinations(options.words, clamped)) {
     const excludedSet = new Set(excluded);
     const remaining = options.words.filter(word => !excludedSet.has(word));
@@ -341,13 +397,20 @@ function solveExactExclusions(options, count) {
     if (result.status !== 'solved') continue;
     if (result.depth < bestDepth) {
       bestDepth = result.depth;
+      bestQuestionNodes = Infinity;
       winners.length = 0;
     }
-    if (result.depth === bestDepth) winners.push({ excluded, result });
+    if (result.depth !== bestDepth) continue;
+    const questionNodes = Math.min(...(result.trees || [result.tree]).map(questionNodeCount));
+    if (questionNodes < bestQuestionNodes) {
+      bestQuestionNodes = questionNodes;
+      winners.length = 0;
+    }
+    if (questionNodes === bestQuestionNodes) winners.push({ excluded, result });
   }
   winners.sort((a, b) => a.excluded.join('\u0000').localeCompare(b.excluded.join('\u0000')));
   return winners.flatMap(({ excluded, result }) => (result.trees || [result.tree]).map(tree => ({
-    toExclude: excluded, tree, depth: result.depth, validation: result.validation,
+    toExclude: excluded, tree, depth: result.depth, questionNodes: questionNodeCount(tree), validation: result.validation,
   }))).slice(0, options.maxVariants);
 }
 
@@ -386,6 +449,7 @@ function qualityOfVariant(variant) {
   const negativeCount = maxNegativeOnPath(variant.tree);
   return {
     depth: variant.depth,
+    questionNodes: variant.questionNodes ?? questionNodeCount(variant.tree),
     negativeTier: negativeCount === 0 ? 0 : negativeCount === 1 ? 1 : 2,
     negativeCount,
   };
@@ -395,6 +459,7 @@ function sameQuality(a, b) {
   const aq = qualityOfVariant(a);
   const bq = qualityOfVariant(b);
   return aq.depth === bq.depth
+    && aq.questionNodes === bq.questionNodes
     && aq.negativeTier === bq.negativeTier
     && (aq.negativeTier < 2 || aq.negativeCount === bq.negativeCount);
 }
