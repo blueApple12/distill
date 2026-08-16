@@ -163,6 +163,15 @@ export function getCollisionAdvice(words, { allowed, customQs } = {}) {
   return { groups, required: groups.reduce((n, group) => n + group.length - 1, 0) };
 }
 
+// HYBRID opens balanced (like 50/50, to stay flexible while the pool is
+// still large) then switches to precision (like SNIPER, to chase a fast
+// YES-heavy finish) from the second question on. depth === 0 is the very
+// first question asked in that path.
+function resolveMode(mode, depth) {
+  if (mode !== 'hybrid') return mode;
+  return depth === 0 ? '5050' : 'sniper';
+}
+
 function candidateScore(candidate, mode) {
   const sizes = candidate.groups.map(group => countBits(group.mask));
   const total = sizes.reduce((sum, size) => sum + size, 0);
@@ -225,7 +234,7 @@ function solveAtDepth(words, prepared, options, depthLimit) {
         : `cup:${groups.map(group => String(group.mask)).sort().join('|')}`;
       candidates.push({ q: preparedQuestion.q, groups, signature });
     }
-    candidates.sort((a, b) => compareCandidates(a, b, mode));
+    candidates.sort((a, b) => compareCandidates(a, b, resolveMode(mode, path.length)));
     const uniqueCandidates = candidates.filter(candidate => {
       if (seenPartitions.has(candidate.signature)) return false;
       seenPartitions.add(candidate.signature);
@@ -362,7 +371,7 @@ export function solveTree(words, rawOptions = {}) {
       if (!negativeTrees.length) continue;
       const fewestNodes = Math.min(...negativeTrees.map(questionNodeCount));
       const trees = negativeTrees.filter(candidate => questionNodeCount(candidate) === fewestNodes)
-        .sort((a, b) => compareTrees(a, b, options.mode))
+        .sort((a, b) => compareTrees(a, b, resolveMode(options.mode, 0)))
         .slice(0, options.maxVariants || 5);
       const qualityTrees = requiredQuality
         ? trees.filter(candidate => questionNodeCount(candidate) === requiredQuality.questionNodes)

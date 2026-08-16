@@ -23,6 +23,7 @@ import { Carousel } from './Carousel.jsx';
 import { GLOBAL_CSS } from './globalStyles.js';
 
 const SECTIONS = ['settings', 'tree', 'trainer'];
+const MODE_LABELS = { '5050': 'BALANCED', hybrid: 'HYBRID', sniper: 'PRECISION' };
 
 export default function App() {
   // ── state ─────────────────────────────────────────────────────────────────
@@ -507,15 +508,20 @@ const SettingsSection = memo(function SettingsSection({
               display: 'flex', borderRadius: 7, overflow: 'hidden',
               border: `0.5px solid ${T2.border}`, background: 'rgba(0,0,0,0.2)',
             }}>
-              {[['5050', 'BALANCED'], ['sniper', 'PRECISION']].map(([v, lbl]) => (
+              {[['5050', 'BALANCED'], ['hybrid', 'HYBRID ★'], ['sniper', 'PRECISION']].map(([v, lbl], i, arr) => (
                 <button key={v} onClick={() => setMode(v)} style={{
                   flex: 1, padding: '8px 4px', fontSize: 10, fontWeight: 700, letterSpacing: 1,
                   background: mode === v ? T2.pri + '28' : 'transparent',
                   color: mode === v ? T2.pri : 'rgba(200,200,220,0.3)',
-                  borderRight: v === '5050' ? `0.5px solid ${T2.border}` : 'none',
+                  borderRight: i < arr.length - 1 ? `0.5px solid ${T2.border}` : 'none',
                   transition: 'all 0.4s',
                 }}>{lbl}</button>
               ))}
+            </div>
+            <div style={{ marginTop: 8, fontSize: 9, color: 'rgba(200,200,220,0.32)', lineHeight: 1.5 }}>
+              {mode === '5050' && 'Every question splits the pool as evenly as possible.'}
+              {mode === 'hybrid' && 'Splits evenly on the first question, then narrows fast toward a YES-heavy finish.'}
+              {mode === 'sniper' && 'Every question chases a YES-heavy, fast finish.'}
             </div>
           </div>
         </div>
@@ -789,7 +795,7 @@ const TreeSection = memo(function TreeSection({
         <Tag color={T2.pri}>TREE</Tag>
         {wl.length > 0 && (
           <>
-            <Tag color={T2.sec}>{mode === '5050' ? 'BALANCED' : 'PRECISION'}</Tag>
+            <Tag color={T2.sec}>{MODE_LABELS[mode]}</Tag>
             {allowed.cups && <Tag color={T2.sec}>LETTER COUNT</Tag>}
             {maxNOs > 0 && <Tag color={T2.sec}>NO×{maxNOs}</Tag>}
             {excluded.length > 0 && <Tag color={T2.sec}>−{excluded.length}</Tag>}
@@ -957,7 +963,7 @@ function TrainerIdle({ T2, wl, effectiveWl, mode, allowed, maxNOs, solverState, 
             </div>
 
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
-              <Tag color={T2.sec}>{mode === '5050' ? 'BALANCED' : 'PRECISION'}</Tag>
+              <Tag color={T2.sec}>{MODE_LABELS[mode]}</Tag>
               {allowed.cups && <Tag color={T2.sec}>LETTER COUNT</Tag>}
               {maxNOs > 0 && <Tag color={T2.sec}>NO ×{maxNOs}</Tag>}
               <Tag color='rgba(200,200,220,0.35)'>{effectiveWl.length} words</Tag>
@@ -997,7 +1003,7 @@ function TrainerQuestion({
           border: '0.5px solid rgba(255,255,255,0.12)', borderRadius: 6,
           padding: '4px 10px', fontSize: 10, fontWeight: 700, letterSpacing: 1,
         }}>← BACK</button>
-        <Tag color={T2.sec}>{mode === '5050' ? 'BALANCED' : 'PRECISION'}</Tag>
+        <Tag color={T2.sec}>{MODE_LABELS[mode]}</Tag>
         {maxNOs > 0 && (
           <Tag color={noUsed >= maxNOs ? '#e06b4d' : T2.sec}>
             {noUsed >= maxNOs ? '⚡ MAX YES MODE' : `NO ${noUsed}/${maxNOs}`}

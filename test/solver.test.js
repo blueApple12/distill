@@ -267,6 +267,49 @@ test('preloads node-level alternatives into solvePrimary without a dropdown inte
   }
 });
 
+test('hybrid mode resolves the first question like balanced', () => {
+  const words = ['a', 'b', 'c', 'd', 'e'];
+  const questions = [
+    // 3/2 split — the more even option, best under 5050 scoring.
+    { id: 'root-balanced', baseId: 'root-balanced', type: 'bin', text: 'Balanced?', inverted: false, test: w => w === 'a' || w === 'b' || w === 'c' },
+    // 4/1 split — the smaller-NO-branch option, best under sniper scoring.
+    { id: 'root-yesheavy', baseId: 'root-yesheavy', type: 'bin', text: 'Yes heavy?', inverted: false, test: w => w === 'a' || w === 'b' || w === 'c' || w === 'd' },
+    // Distinguish a/b/c from each other so they aren't a hard collision —
+    // both dominated by the two options above under every mode.
+    { id: 'q-a', baseId: 'q-a', type: 'bin', text: 'A?', inverted: false, test: w => w === 'a' },
+    { id: 'q-b', baseId: 'q-b', type: 'bin', text: 'B?', inverted: false, test: w => w === 'b' },
+  ];
+  const base = { words, questions, maxNOs: 0, stopAt: 4 };
+  const balanced = solveTree(words, { ...base, mode: '5050' });
+  const sniper = solveTree(words, { ...base, mode: 'sniper' });
+  const hybrid = solveTree(words, { ...base, mode: 'hybrid' });
+
+  assert.equal(balanced.tree.q.id, 'root-balanced');
+  assert.equal(sniper.tree.q.id, 'root-yesheavy');
+  assert.equal(hybrid.tree.q.id, balanced.tree.q.id, 'hybrid should pick the balanced root, like 5050');
+});
+
+test('hybrid mode resolves the second question onward like precision', () => {
+  const words = ['a', 'b', 'c', 'd', 'e', 'f'];
+  const questions = [
+    { id: 'root', baseId: 'root', type: 'bin', text: 'Root?', inverted: false, test: w => w === 'a' },
+    // Under the 5-word NO branch: 3/2 split, best under 5050 scoring.
+    { id: 'sub-balanced', baseId: 'sub-balanced', type: 'bin', text: 'Sub balanced?', inverted: false, test: w => w === 'b' || w === 'c' || w === 'd' },
+    // Under the 5-word NO branch: 4/1 split, best under sniper scoring.
+    { id: 'sub-yesheavy', baseId: 'sub-yesheavy', type: 'bin', text: 'Sub yes heavy?', inverted: false, test: w => w === 'b' || w === 'c' || w === 'd' || w === 'e' },
+    { id: 'q-b', baseId: 'q-b', type: 'bin', text: 'B?', inverted: false, test: w => w === 'b' },
+    { id: 'q-c', baseId: 'q-c', type: 'bin', text: 'C?', inverted: false, test: w => w === 'c' },
+  ];
+  const base = { words, questions, maxNOs: 0, stopAt: 4, forcedQuestions: [{ path: [], questionId: 'root' }] };
+  const balanced = solveTree(words, { ...base, mode: '5050' });
+  const sniper = solveTree(words, { ...base, mode: 'sniper' });
+  const hybrid = solveTree(words, { ...base, mode: 'hybrid' });
+
+  assert.equal(balanced.tree.ch.NO.q.id, 'sub-balanced');
+  assert.equal(sniper.tree.ch.NO.q.id, 'sub-yesheavy');
+  assert.equal(hybrid.tree.ch.NO.q.id, sniper.tree.ch.NO.q.id, 'hybrid should pick the yes-heavy split, like sniper, past the first question');
+});
+
 test('ranks fewer total question nodes ahead of mode tie-breaks', () => {
   const leaf = words => ({ words, q: null, ch: {} });
   const question = id => ({ id, baseId: id, type: 'bin', inverted: false });
