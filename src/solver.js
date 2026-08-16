@@ -253,8 +253,8 @@ function solveAtDepth(words, prepared, options, depthLimit) {
       if (mask === fullMask && depthLeft === depthLimit) {
         rootVariants.push(result);
         if (rootVariants.length < rootVariantLimit) continue;
+        result.rootVariants = rootVariants;
       }
-      result.rootVariants = rootVariants;
       return result;
     }
 
@@ -304,7 +304,7 @@ export function solveTree(words, rawOptions = {}) {
     customQs: [],
     questions: null,
     initialNOs: 0,
-    maxVariants: 8,
+    maxVariants: 5,
     maxRootCandidates: 64,
     forcedQuestions: [],
     ...rawOptions,
@@ -316,8 +316,16 @@ export function solveTree(words, rawOptions = {}) {
   }
   const choices = options.questions || buildQuestionChoices(words, options.allowed, options.customQs, options.allowNegative ?? true);
   const rawPrepared = prepareQuestions(words, choices);
+  // Two questions with the same partition over the *whole* word list are
+  // normally redundant and safe to collapse to one representative. But a
+  // forced question (from a per-node alternative pick) is pinned by its
+  // exact id, which may be exactly such a dropped synonym — keep every id
+  // that solveForcedAlternatives could legitimately pin so re-solving a
+  // node never fails just because its displayed label lost the dedup race.
+  const forcedIds = new Set((options.forcedQuestions || []).map(force => force.questionId));
   const seenPrepared = new Set();
   const prepared = rawPrepared.filter(question => {
+    if (forcedIds.has(question.q.id)) return true;
     const signature = `${question.q.type}:${question.groups.map(group => `${group.key}:${group.mask}`).join('|')}`;
     if (seenPrepared.has(signature)) return false;
     seenPrepared.add(signature);
@@ -355,7 +363,7 @@ export function solveTree(words, rawOptions = {}) {
       const fewestNodes = Math.min(...negativeTrees.map(questionNodeCount));
       const trees = negativeTrees.filter(candidate => questionNodeCount(candidate) === fewestNodes)
         .sort((a, b) => compareTrees(a, b, options.mode))
-        .slice(0, options.maxVariants || 8);
+        .slice(0, options.maxVariants || 5);
       const qualityTrees = requiredQuality
         ? trees.filter(candidate => questionNodeCount(candidate) === requiredQuality.questionNodes)
         : trees;
@@ -414,6 +422,23 @@ function solveExactExclusions(options, count) {
   }))).slice(0, options.maxVariants);
 }
 
+function collectQuestionPaths(node, path = [], out = []) {
+  if (!node?.q) return out;
+  out.push(path);
+  for (const [key, child] of Object.entries(node.ch || {})) {
+    collectQuestionPaths(child, [...path, key], out);
+  }
+  return out;
+}
+
+const variantKey = variant => JSON.stringify([variant.toExclude || [], variant.tree]);
+
+// Wall-clock cap on the preload pass below — re-solving per node can be
+// combinatorially expensive when maxExclude > 0 (each node re-runs the
+// exclusion-combination search), so this bounds worst-case latency instead
+// of letting a large word list or exclusion budget block the worker.
+const PRELOAD_BUDGET_MS = 1200;
+
 export function solvePrimary(rawOptions) {
   const options = {
     words: [],
@@ -422,7 +447,7 @@ export function solvePrimary(rawOptions) {
     stopAt: 1,
     maxExclude: 0,
     customQs: [],
-    maxVariants: 8,
+    maxVariants: 5,
     suggestionDepth: 5,
     maxSuggestionExclude: 10,
     ...rawOptions,
@@ -434,10 +459,33 @@ export function solvePrimary(rawOptions) {
       excluded: [], validation: null,
     };
   }
-  const first = variants[0];
+  const merged = [...variants];
+  // Preload every other equally-good whole tree so the top TREE 1/N switcher
+  // already contains what a node's dropdown would otherwise only reveal on
+  // interaction. Skipped when called recursively (forcedQuestions present,
+  // i.e. from inside solveForcedAlternatives itself) to avoid unbounded
+  // re-entrant preloading.
+  if (!rawOptions.forcedQuestions?.length && merged.length < options.maxVariants) {
+    const seen = new Set(merged.map(variantKey));
+    const baseline = merged[0];
+    const paths = collectQuestionPaths(baseline.tree);
+    const deadline = Date.now() + PRELOAD_BUDGET_MS;
+    for (const path of paths) {
+      if (merged.length >= options.maxVariants || Date.now() > deadline) break;
+      const alternatives = solveForcedAlternatives(options, { path, baseline });
+      for (const alt of alternatives) {
+        if (merged.length >= options.maxVariants) break;
+        const key = variantKey(alt.variant);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        merged.push(alt.variant);
+      }
+    }
+  }
+  const first = merged[0];
   return {
     status: 'solved',
-    variants,
+    variants: merged,
     tree: first.tree,
     depth: first.depth,
     excluded: first.toExclude,
@@ -472,32 +520,48 @@ function questionSplitsWords(question, words) {
   return new Set(words.map(question.grp)).size > 1;
 }
 
+// Every question node outside the target's own subtree, pinned to whatever
+// baseline.tree already shows there. Without this, re-solving one node would
+// let the DP silently pick a different question anywhere else in the tree
+// (including branches the user had already customized via an earlier
+// alternative pick), so two separate node overrides could never compose.
+function collectFixedQuestions(node, targetPath, path = [], out = []) {
+  if (!node?.q) return out;
+  if (path.length === targetPath.length && path.every((key, index) => key === targetPath[index])) return out;
+  out.push({ path, questionId: node.q.id });
+  for (const [key, child] of Object.entries(node.ch || {})) {
+    collectFixedQuestions(child, targetPath, [...path, key], out);
+  }
+  return out;
+}
+
 // Re-solves the complete tree for every viable replacement at one displayed
-// node. Ancestor questions are pinned so the selected node keeps its meaning;
-// exclusions and all descendants are free to change.
+// node. Every other question node in the tree is pinned so previously chosen
+// alternatives elsewhere survive; only the selected node's subtree (and,
+// subject to requiredQuality, the exclusion set) is free to change.
 export function solveForcedAlternatives(rawOptions, { path = [], baseline } = {}) {
   if (!baseline?.tree) return [];
   const target = nodeAtPath(baseline.tree, path);
   if (!target?.q || !target.words?.length) return [];
   const options = {
-    words: [], maxExclude: baseline.toExclude?.length || 0, maxVariants: 8,
+    words: [], maxExclude: baseline.toExclude?.length || 0, maxVariants: 5,
     ...rawOptions,
   };
   const questions = options.questions
     || buildQuestionChoices(options.words, options.allowed, options.customQs, options.allowNegative ?? true);
-  const ancestors = [];
   let potentialTargetWords = [...options.words];
   for (let depth = 0; depth < path.length; depth++) {
     const ancestorPath = path.slice(0, depth);
     const ancestor = nodeAtPath(baseline.tree, ancestorPath);
     if (!ancestor?.q) return [];
-    ancestors.push({ path: ancestorPath, questionId: ancestor.q.id });
     const question = questions.find(item => item.id === ancestor.q.id);
     if (!question) return [];
     potentialTargetWords = potentialTargetWords.filter(word => question.type === 'bin'
       ? (question.test(word) ? 'YES' : 'NO') === path[depth]
       : String(question.grp(word)) === path[depth]);
   }
+  const fixedQuestions = collectFixedQuestions(baseline.tree, path);
+  if (fixedQuestions.some(force => !questions.some(item => item.id === force.questionId))) return [];
   const results = [];
   const questionGroups = new Map();
   for (const question of questions) {
@@ -512,7 +576,7 @@ export function solveForcedAlternatives(rawOptions, { path = [], baseline } = {}
   const baselineQuality = qualityOfVariant(baseline);
   for (const equivalentQuestions of questionGroups.values()) {
     const representative = equivalentQuestions[0];
-    const forcedQuestions = [...ancestors, { path, questionId: representative.id }];
+    const forcedQuestions = [...fixedQuestions, { path, questionId: representative.id }];
     const solution = solvePrimary({
       ...options, questions, forcedQuestions,
       requiredQuality: baselineQuality,
@@ -540,7 +604,7 @@ export function solveAdvice(rawOptions, primary) {
   const options = {
     words: [],
     maxExclude: 0,
-    maxVariants: 8,
+    maxVariants: 5,
     suggestionDepth: 5,
     maxSuggestionExclude: 10,
     ...rawOptions,

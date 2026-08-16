@@ -212,6 +212,61 @@ test('a node alternative may replace the exclusion set without becoming worse', 
   assert.equal(pair.variant.validation.valid, true);
 });
 
+test('composes two independent node overrides instead of reverting one when picking the other', () => {
+  const words = ['a', 'b', 'c', 'd'];
+  const questions = [
+    { id: 'root', baseId: 'root', type: 'bin', text: 'Root?', inverted: false, test: w => w === 'a' || w === 'b' },
+    { id: 'left-1', baseId: 'left-1', type: 'bin', text: 'Left 1?', inverted: false, test: w => w === 'a' },
+    { id: 'left-2', baseId: 'left-2', type: 'bin', text: 'Left 2?', inverted: false, test: w => w === 'a' },
+    { id: 'right-1', baseId: 'right-1', type: 'bin', text: 'Right 1?', inverted: false, test: w => w === 'c' },
+    { id: 'right-2', baseId: 'right-2', type: 'bin', text: 'Right 2?', inverted: false, test: w => w === 'c' },
+  ];
+  const options = { words, questions, maxNOs: 0, stopAt: 1, maxExclude: 0 };
+  const baseline = solvePrimary(options).variants[0];
+  const baselineYesId = baseline.tree.ch.YES.q.id;
+  const baselineNoId = baseline.tree.ch.NO.q.id;
+
+  const yesAlt = solveForcedAlternatives(options, { path: ['YES'], baseline })
+    .find(item => item.question.id !== baselineYesId);
+  assert.ok(yesAlt);
+  const afterYes = yesAlt.variant;
+  assert.notEqual(afterYes.tree.ch.YES.q.id, baselineYesId);
+  assert.equal(afterYes.tree.ch.NO.q.id, baselineNoId);
+
+  // Re-solving a second, unrelated node must not silently revert the first
+  // override — the two picks should compose.
+  const noAlt = solveForcedAlternatives(options, { path: ['NO'], baseline: afterYes })
+    .find(item => item.question.id !== baselineNoId);
+  assert.ok(noAlt);
+  const afterBoth = noAlt.variant;
+  assert.notEqual(afterBoth.tree.ch.NO.q.id, baselineNoId);
+  assert.equal(afterBoth.tree.ch.YES.q.id, afterYes.tree.ch.YES.q.id);
+});
+
+test('preloads node-level alternatives into solvePrimary without a dropdown interaction', () => {
+  const words = ['a', 'b', 'c', 'd'];
+  const questions = [
+    { id: 'root', baseId: 'root', type: 'bin', text: 'Root?', inverted: false, test: w => w === 'a' || w === 'b' },
+    { id: 'left-1', baseId: 'left-1', type: 'bin', text: 'Left 1?', inverted: false, test: w => w === 'a' },
+    { id: 'left-2', baseId: 'left-2', type: 'bin', text: 'Left 2?', inverted: false, test: w => w === 'a' },
+    { id: 'right-1', baseId: 'right-1', type: 'bin', text: 'Right 1?', inverted: false, test: w => w === 'c' },
+  ];
+  const started = Date.now();
+  const primary = solvePrimary({ words, questions, maxNOs: 0, stopAt: 1, maxExclude: 0 });
+  const elapsed = Date.now() - started;
+
+  assert.equal(primary.status, 'solved');
+  assert.ok(elapsed < 1000, `expected preload to stay within budget, took ${elapsed}ms`);
+  assert.ok(primary.variants.length >= 2, 'expected the YES-branch tie to already be preloaded');
+  const yesIds = new Set(primary.variants.map(v => v.tree.ch.YES.q.id));
+  assert.ok(yesIds.has('left-1') && yesIds.has('left-2'));
+  for (const variant of primary.variants) {
+    assert.equal(variant.tree.q.id, 'root');
+    assert.equal(variant.tree.ch.NO.q.id, 'right-1');
+    assert.equal(variant.depth, primary.depth);
+  }
+});
+
 test('ranks fewer total question nodes ahead of mode tie-breaks', () => {
   const leaf = words => ({ words, q: null, ch: {} });
   const question = id => ({ id, baseId: id, type: 'bin', inverted: false });

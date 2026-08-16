@@ -99,7 +99,7 @@ export default function App() {
       requestId, path, baseline,
       options: {
         words: wl, mode, maxNOs, stopAt, maxExclude, allowed, customQs, allowNegative,
-        maxVariants: 8,
+        maxVariants: 5,
       },
     });
   }), [wl, mode, maxNOs, stopAt, maxExclude, allowed, customQs, allowNegative]);
@@ -168,7 +168,7 @@ export default function App() {
       requestId,
       options: {
         words: wl, mode, maxNOs, stopAt, maxExclude, allowed, customQs, allowNegative,
-        maxVariants: 8, suggestionDepth: 5, maxSuggestionExclude: 10,
+        maxVariants: 5, suggestionDepth: 5, maxSuggestionExclude: 10,
       },
     });
     return () => worker.terminate();
